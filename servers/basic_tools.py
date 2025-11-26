@@ -1,8 +1,9 @@
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
+from mcp.types import CallToolResult, TextContent
 
 from pydantic import BaseModel
-from typing import TypedDict
+from typing import TypedDict, Annotated
 
 mcp = FastMCP(name="Tool Example")
 
@@ -17,6 +18,13 @@ class AdditionResponse(TypedDict):
     a: int
     b: int
     result: int
+
+
+class ValidationModel(BaseModel):
+    """Model for validating structured output."""
+
+    status: str
+    data: dict[str, int]
 
 
 @mcp.tool()
@@ -60,6 +68,31 @@ async def long_running_task(
         await ctx.debug(f"Completed step {i + 1}")
 
     return f"Task '{task_name}' completed"
+
+
+@mcp.tool()
+def advanced_tool() -> CallToolResult:
+    """Return CallToolResult directly for full control including _meta field"""
+    return CallToolResult(
+        content=[TextContent(type="text", text="Response visible to the model")],
+        _meta={"hidden": "data for client applications only"},
+    )
+
+
+@mcp.tool()
+def validated_tool() -> Annotated[CallToolResult, ValidationModel]:
+    """Return CallToolResult with structured output validation."""
+    return CallToolResult(
+        content=[TextContent(type="text", text="Validated response")],
+        structuredContent={"status": "success", "data": {"result": 42}},
+        _meta={"internal": "metadata"},
+    )
+
+
+@mcp.tool()
+def empty_result_tool() -> CallToolResult:
+    """For empty results, return CallToolResult with empty content."""
+    return CallToolResult(content=[])
 
 
 if __name__ == "__main__":
